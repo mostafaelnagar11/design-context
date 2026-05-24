@@ -265,8 +265,9 @@ export async function importFromFigmaStylesAction(formData: FormData): Promise<I
     // Sort: pages whose names suggest styles come first
     const STYLE_KEYWORDS = /style|foundation|color|colour|token|typography|text|effect|shadow|radius|spacing/i;
     const sorted = [...pageIds].sort((a, b) => {
-      const aName = pageName(a) ?? "";
-      const bName = pageName(b) ?? "";
+      const aName = pageName(a)?.toLowerCase() ?? "";
+      const bName = pageName(b)?.toLowerCase() ?? "";
+      // If user gave a page hint, put exact match first
       return (STYLE_KEYWORDS.test(bName) ? 1 : 0) - (STYLE_KEYWORDS.test(aName) ? 1 : 0);
     });
 
