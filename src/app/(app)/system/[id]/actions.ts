@@ -1,7 +1,5 @@
 "use server";
 
-export const maxDuration = 60; // allow up to 60s for Figma API calls
-
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
