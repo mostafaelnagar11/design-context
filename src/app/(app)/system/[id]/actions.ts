@@ -225,7 +225,7 @@ export async function importFromFigmaStylesAction(formData: FormData): Promise<I
   let fileJson: { styles?: Record<string, FigmaStyleMeta> };
   try {
     const res = await fetch(
-      `https://api.figma.com/v1/files/${fileKey}?depth=1`,
+      `https://api.figma.com/v1/files/${fileKey}`,
       { headers: { Authorization: `Bearer ${figmaToken}` }, next: { revalidate: 0 } }
     );
     if (!res.ok) {
