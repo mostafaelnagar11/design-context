@@ -197,7 +197,7 @@ export function FigmaImportButton({ systemId, isConnected, figmaEmail }: Props) 
                     </p>
                     {mode === "variables" && (
                       <p className="text-[11px] text-amber/80 leading-relaxed">
-                        ⚠ Variables require a Figma Enterprise plan. If you're on Personal or Pro, use Styles instead.
+                        ⚠ Variables require a Figma Enterprise plan. If you&apos;re on Personal or Pro, use Styles instead.
                       </p>
                     )}
                   </div>
