@@ -27,6 +27,13 @@ yarn-error.log*
 
 # local env files
 .env*.local
+.env
+.env.local
+*/.env
+*/.env.local
+
+# mcp-server node_modules
+mcp-server/node_modules/
 
 # vercel
 .vercel
