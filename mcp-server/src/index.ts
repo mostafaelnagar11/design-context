@@ -12,7 +12,6 @@ process.on("unhandledRejection", (reason) => {
 });
 
 const app = express();
-app.use(express.json());
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const transports = new Map<string, any>();
