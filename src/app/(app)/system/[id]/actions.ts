@@ -68,7 +68,8 @@ export async function disconnectFigmaAction(): Promise<void> {
 // ─── Import ────────────────────────────────────────────────────────────────────
 
 export type ImportResult =
-  | { ok: true; counts: { colors: number; spacing: number; radii: number; skipped: number } }
+  | { ok: true; mode: "variables"; counts: { colors: number; spacing: number; radii: number; skipped: number } }
+  | { ok: true; mode: "styles"; counts: { colors: number; typography: number; shadows: number; skipped: number } }
   | { ok: false; error: string };
 
 export async function importFromFigmaAction(formData: FormData): Promise<ImportResult> {
@@ -172,7 +173,168 @@ export async function importFromFigmaAction(formData: FormData): Promise<ImportR
     radii: rows.filter((r) => r.category === "radii").length,
     skipped,
   };
-  return { ok: true, counts };
+  return { ok: true, mode: "variables" as const, counts };
+}
+
+// ─── Import Styles (Personal / Pro) ───────────────────────────────────────────
+
+type FigmaStyleMeta = {
+  name: string;
+  styleType: "FILL" | "TEXT" | "EFFECT" | "GRID";
+};
+
+type FigmaFill = { type: string; color?: FigmaColor; opacity?: number };
+type FigmaEffect = {
+  type: string;
+  visible?: boolean;
+  color?: FigmaColor;
+  radius?: number;
+  offset?: { x: number; y: number };
+  spread?: number;
+};
+type FigmaNodeDoc = {
+  fills?: FigmaFill[];
+  effects?: FigmaEffect[];
+  fontSize?: number;
+  fontName?: { family: string; style: string };
+};
+
+export async function importFromFigmaStylesAction(formData: FormData): Promise<ImportResult> {
+  const systemId = String(formData.get("system_id"));
+  await assertOwner(systemId);
+
+  const figmaUrl = String(formData.get("figma_url")).trim();
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not logged in." };
+
+  const admin = createAdminClient();
+  const { data: conn } = await admin
+    .from("figma_connections")
+    .select("access_token")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const figmaToken = conn?.access_token ?? "";
+  if (!figmaToken) return { ok: false, error: "Figma not connected. Connect first." };
+
+  const fileKey = extractFileKey(figmaUrl);
+  if (!fileKey) return { ok: false, error: "Could not extract a file key from that URL." };
+
+  // 1. Fetch file metadata — styles are at the root, keys are node IDs
+  let fileJson: { styles?: Record<string, FigmaStyleMeta> };
+  try {
+    const res = await fetch(
+      `https://api.figma.com/v1/files/${fileKey}?depth=1`,
+      { headers: { Authorization: `Bearer ${figmaToken}` }, next: { revalidate: 0 } }
+    );
+    if (!res.ok) {
+      const text = await res.text();
+      return { ok: false, error: `Figma API error ${res.status}: ${text.slice(0, 200)}` };
+    }
+    fileJson = await res.json();
+  } catch (e) {
+    return { ok: false, error: `Network error: ${String(e)}` };
+  }
+
+  const styles = fileJson.styles ?? {};
+  const styleEntries = Object.entries(styles)
+    .filter(([, s]) => s.styleType !== "GRID")
+    .map(([nodeId, s]) => ({ ...s, nodeId }));
+
+  if (!styleEntries.length) {
+    return { ok: false, error: "No styles found in this file. Make sure the file has published paint, text, or effect styles." };
+  }
+
+  // 2. Batch-fetch all style nodes
+  const nodeIdsParam = styleEntries.map((s) => s.nodeId).join(",");
+  let nodesJson: { nodes: Record<string, { document: FigmaNodeDoc } | null> };
+  try {
+    const res = await fetch(
+      `https://api.figma.com/v1/files/${fileKey}/nodes?ids=${nodeIdsParam}`,
+      { headers: { Authorization: `Bearer ${figmaToken}` }, next: { revalidate: 0 } }
+    );
+    if (!res.ok) {
+      const text = await res.text();
+      return { ok: false, error: `Figma nodes API error ${res.status}: ${text.slice(0, 200)}` };
+    }
+    nodesJson = await res.json();
+  } catch (e) {
+    return { ok: false, error: `Network error: ${String(e)}` };
+  }
+
+  // 3. Parse styles → tokens
+  type TokenRow = { system_id: string; category: string; token_name: string; token_value: unknown; group_name: string };
+  const rows: TokenRow[] = [];
+  let skipped = 0;
+
+  for (const style of styleEntries) {
+    const nodeData = nodesJson.nodes[style.nodeId];
+    if (!nodeData) { skipped++; continue; }
+    const doc = nodeData.document;
+
+    const nameParts = style.name.split("/").map(slugify).filter(Boolean);
+    const tokenName = nameParts.join("-") || slugify(style.name);
+    const groupName = nameParts.length > 1 ? nameParts.slice(0, -1).join("-") : "default";
+
+    if (style.styleType === "FILL") {
+      const fill = doc.fills?.find((f) => f.type === "SOLID");
+      if (!fill?.color) { skipped++; continue; }
+      rows.push({ system_id: systemId, category: "color", token_name: tokenName, token_value: toHex(fill.color), group_name: groupName });
+
+    } else if (style.styleType === "TEXT") {
+      const size = doc.fontSize ?? 14;
+      const family = doc.fontName?.family ?? "Inter";
+      const raw = (doc.fontName?.style ?? "Regular").toLowerCase();
+      const weight =
+        raw.includes("semi") || raw.includes("demi") ? "semibold" :
+        raw.includes("bold") ? "bold" :
+        raw.includes("medium") ? "medium" : "regular";
+      rows.push({ system_id: systemId, category: "typography", token_name: tokenName, token_value: { size, weight, family }, group_name: groupName });
+
+    } else if (style.styleType === "EFFECT") {
+      const shadow = doc.effects?.find(
+        (e) => (e.type === "DROP_SHADOW" || e.type === "INNER_SHADOW") && e.visible !== false
+      );
+      if (!shadow?.color) { skipped++; continue; }
+      const { r, g, b, a } = shadow.color;
+      const x = shadow.offset?.x ?? 0;
+      const y = shadow.offset?.y ?? 2;
+      const blur = shadow.radius ?? 4;
+      const spread = shadow.spread ?? 0;
+      const rgba = `rgba(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)},${a.toFixed(2)})`;
+      const inset = shadow.type === "INNER_SHADOW" ? "inset " : "";
+      const val = `${inset}${x}px ${y}px ${blur}px${spread ? ` ${spread}px` : ""} ${rgba}`;
+      rows.push({ system_id: systemId, category: "shadow", token_name: tokenName, token_value: val, group_name: groupName });
+
+    } else {
+      skipped++;
+    }
+  }
+
+  if (!rows.length) {
+    return { ok: false, error: "No importable styles found. The file may only have grid styles or unsupported types." };
+  }
+
+  // 4. Upsert into Supabase
+  const categories = Array.from(new Set(rows.map((r) => r.category)));
+  const adminDb = createAdminClient();
+  await adminDb.from("tokens").delete().eq("system_id", systemId).in("category", categories);
+  const { error: insertErr } = await adminDb.from("tokens").insert(rows);
+  if (insertErr) return { ok: false, error: insertErr.message };
+
+  revalidatePath(`/system/${systemId}`);
+
+  return {
+    ok: true,
+    mode: "styles" as const,
+    counts: {
+      colors: rows.filter((r) => r.category === "color").length,
+      typography: rows.filter((r) => r.category === "typography").length,
+      shadows: rows.filter((r) => r.category === "shadow").length,
+      skipped,
+    },
+  };
 }
 
 async function assertOwner(systemId: string) {
