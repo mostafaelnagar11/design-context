@@ -257,9 +257,13 @@ export async function importFromFigmaStylesAction(formData: FormData): Promise<I
   if (Object.keys(stylesMap).length === 0 && pageIds.length > 0) {
     try {
       const res = await figmaFetch(
-        `https://api.figma.com/v1/files/${fileKey}/nodes?ids=${pageIds.join(",")}&depth=1`
+        `https://api.figma.com/v1/files/${fileKey}/nodes?ids=${pageIds.join(",")}`
       );
       if (res.ok) {
+        const cl = Number(res.headers.get("content-length") ?? 0);
+        if (cl > 200_000_000) {
+          return { ok: false, error: "Figma file pages are too large to parse (> 200 MB). Try splitting your design across smaller files." };
+        }
         const nodesJson: { nodes: Record<string, { styles?: Record<string, FigmaStyleMeta> } | null> } = await res.json();
         for (const node of Object.values(nodesJson.nodes)) {
           if (node?.styles) Object.assign(stylesMap, node.styles);
