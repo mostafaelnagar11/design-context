@@ -11,7 +11,12 @@ export function Logo({ size = 24, showName = true }: { size?: number; showName?:
         className="shrink-0"
       />
       {showName && (
-        <span className="text-[15px] font-semibold text-primary tracking-tight">Slice</span>
+        <span
+          className="font-semibold text-primary tracking-tight"
+          style={{ fontSize: Math.round(size * 0.65) }}
+        >
+          Slice
+        </span>
       )}
     </span>
   );
