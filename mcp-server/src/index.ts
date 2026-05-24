@@ -11,7 +11,25 @@ process.on("unhandledRejection", (reason) => {
   process.exit(1);
 });
 
-console.log("[startup] express loaded ok");
+const app = express();
+app.use(express.json());
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const transports = new Map<string, any>();
+
+// ── Health check is registered FIRST so Railway's healthcheck passes
+// immediately while the rest of the modules load below ──────────────────────
+app.get("/health", (_req: Request, res: Response) => {
+  res.json({ status: "ok", sessions: transports.size });
+});
+
+// Start listening immediately so healthchecks succeed during cold start
+const PORT = parseInt(process.env.PORT ?? "3001", 10);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`[startup] Design Context MCP server listening on port ${PORT}`);
+});
+
+console.log("[startup] express + health route up");
 console.log("[startup] SUPABASE_URL present:", !!process.env.SUPABASE_URL);
 console.log("[startup] SUPABASE_KEY present:", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
 console.log("[startup] PORT:", process.env.PORT);
@@ -54,18 +72,13 @@ try {
   process.exit(1);
 }
 
-const app = express();
-app.use(express.json());
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const transports = new Map<string, any>();
-
 function extractApiKey(authHeader: string | undefined): string | null {
   if (!authHeader) return null;
   const m = authHeader.match(/^Bearer\s+(.+)$/i);
   return m?.[1]?.trim() ?? null;
 }
 
+// ── MCP routes registered after modules are fully loaded ───────────────────
 app.get("/sse", async (req: Request, res: Response) => {
   const rawKey = extractApiKey(req.headers.authorization);
   if (!rawKey) {
@@ -100,11 +113,4 @@ app.post("/message", async (req: Request, res: Response) => {
   await transport.handlePostMessage(req, res);
 });
 
-app.get("/health", (_req: Request, res: Response) => {
-  res.json({ status: "ok", sessions: transports.size });
-});
-
-const PORT = parseInt(process.env.PORT ?? "3001", 10);
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`[startup] Design Context MCP server running on port ${PORT}`);
-});
+console.log("[startup] all routes registered — MCP server fully ready");
