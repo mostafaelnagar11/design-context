@@ -7,34 +7,35 @@ export default function LoginPage({
   searchParams: { error?: string };
 }) {
   return (
-    <main className="min-h-screen flex items-center justify-center p-10">
-      <form action={loginAction} className="shell w-full max-w-sm">
-        <div className="h-12 border-b-2 border-ink flex items-center px-5 bg-panel">
-          <span className="text-[11px] font-bold tracking-[2px] uppercase">Log in</span>
+    <main className="min-h-screen bg-bg flex items-center justify-center p-6">
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-8">
+          <div className="text-[22px] font-semibold text-primary mb-1">designctx</div>
+          <div className="text-[13px] text-secondary">Your design system. Inside Claude.</div>
         </div>
-        <div className="p-5 flex flex-col gap-4">
+        <form action={loginAction} className="card p-6 flex flex-col gap-5">
           {searchParams.error && (
-            <div className="border-2 border-[#D97706] bg-[#FFF8EC] p-2 text-[10px] text-[#92400E]">
+            <div className="bg-red/10 border border-red/20 rounded-lg px-3 py-2.5 text-[13px] text-red">
               {searchParams.error}
             </div>
           )}
-          <Field label="Email" name="email" type="email" required />
+          <Field label="Email" name="email" type="email" required autoFocus />
           <Field label="Password" name="password" type="password" required />
-          <button className="btn btn-primary justify-center">Log in →</button>
-          <div className="text-[10px] text-soft text-center">
+          <button className="btn btn-primary justify-center">Sign in →</button>
+          <div className="text-[12px] text-secondary text-center">
             No account?{" "}
-            <Link href="/signup" className="underline">Sign up</Link>
+            <Link href="/signup" className="text-accent hover:underline">Sign up free</Link>
           </div>
-        </div>
-      </form>
+        </form>
+      </div>
     </main>
   );
 }
 
 function Field({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <label className="flex flex-col gap-1">
-      <span className="text-[8px] tracking-[1.5px] uppercase text-ink-mute">{label}</span>
+    <label className="flex flex-col gap-1.5">
+      <span className="text-[12px] font-medium text-secondary">{label}</span>
       <input className="input" {...props} />
     </label>
   );

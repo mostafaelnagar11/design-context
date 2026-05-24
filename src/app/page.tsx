@@ -2,32 +2,42 @@ import Link from "next/link";
 
 export default function Landing() {
   return (
-    <main className="min-h-screen flex items-center justify-center p-10">
-      <div className="shell w-full max-w-3xl">
-        <nav className="h-12 border-b-2 border-ink flex items-center px-5 gap-3 bg-panel">
-          <span className="text-[10px] font-bold tracking-[2px] bg-ink text-shell px-2.5 py-1">
-            DESIGNCTX
-          </span>
-          <div className="flex-1" />
-          <Link href="/login" className="btn">Log in</Link>
-          <Link href="/signup" className="btn btn-primary">Get Started</Link>
-        </nav>
-        <div className="p-10 flex flex-col gap-5">
-          <div className="text-[8px] tracking-[3px] uppercase text-ink-mute">
-            Design × Claude
+    <main className="min-h-screen bg-bg flex flex-col">
+      {/* Nav */}
+      <nav className="h-14 border-b border-border flex items-center px-8 gap-4">
+        <span className="text-[16px] font-semibold text-primary tracking-tight">designctx</span>
+        <div className="flex-1" />
+        <Link href="/login" className="btn btn-ghost btn-sm">Sign in</Link>
+        <Link href="/signup" className="btn btn-primary btn-sm">Get started free</Link>
+      </nav>
+
+      {/* Hero */}
+      <div className="flex-1 flex items-center justify-center px-6">
+        <div className="max-w-xl text-center flex flex-col items-center gap-6">
+          <div className="inline-flex items-center gap-2 bg-accent/10 border border-accent/20 rounded-full px-3 py-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+            <span className="text-[12px] text-accent font-medium">MCP-powered design tokens</span>
           </div>
-          <h1 className="text-3xl font-bold leading-tight tracking-tight">
-            Your design system.<br />Inside Claude.
+
+          <h1 className="text-[48px] font-semibold text-primary leading-[1.1] tracking-tight">
+            Your design system.<br />
+            <span className="text-accent">Inside Claude.</span>
           </h1>
-          <p className="text-[11px] text-soft leading-relaxed max-w-md">
-            Import your Figma tokens once. Claude fetches them automatically
-            whenever you mention your system name in a prompt.
+
+          <p className="text-[16px] text-secondary leading-relaxed max-w-md">
+            Import your Figma tokens once. Claude fetches them automatically whenever you reference your design system in a prompt.
           </p>
-          <div className="flex gap-3 mt-2">
-            <Link href="/signup" className="btn btn-primary h-10 text-[11px]">
-              Get Started Free →
+
+          <div className="flex items-center gap-3">
+            <Link href="/signup" className="btn btn-primary h-11 px-6 text-[14px]">
+              Get started free →
+            </Link>
+            <Link href="/login" className="btn btn-ghost h-11 px-6 text-[14px]">
+              Sign in
             </Link>
           </div>
+
+          <p className="text-[12px] text-muted">No credit card required</p>
         </div>
       </div>
     </main>

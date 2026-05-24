@@ -73,11 +73,11 @@ export function TokenRow({
 
   return (
     <div
-      className={`group flex items-center px-3.5 py-2 border-b border-[#EDEAE3] gap-2.5 last:border-b-0 min-h-[42px] ${
+      className={`group flex items-center px-4 py-2.5 border-b border-border gap-3 last:border-b-0 min-h-[44px] hover:bg-surface-2 transition-colors ${
         isPending ? "opacity-40" : ""
       }`}
     >
-      {/* Preview — click to open value editor */}
+      {/* Preview swatch — click to edit value */}
       <button
         type="button"
         onClick={() => { setEditingValue(true); setEditingName(false); }}
@@ -97,14 +97,14 @@ export function TokenRow({
             onChange={(e) => setName(e.target.value)}
             onBlur={commitName}
             onKeyDown={(e) => {
-              if (e.key === "Enter") { nameRef.current?.blur(); }
+              if (e.key === "Enter") nameRef.current?.blur();
               if (e.key === "Escape") { setName(token.token_name); setEditingName(false); }
             }}
-            className="border border-[#C8C4B8] bg-shell px-1.5 text-[10px] h-6 w-full outline-none focus:border-ink"
+            className="bg-surface-3 border border-border focus:border-accent rounded px-2 text-[13px] h-7 w-full outline-none text-primary"
           />
         ) : (
           <div
-            className="text-[10px] cursor-text truncate hover:text-ink"
+            className="text-[13px] text-primary cursor-text truncate"
             onClick={() => { setEditingName(true); setEditingValue(false); }}
             title="Click to rename"
           >
@@ -117,30 +117,26 @@ export function TokenRow({
       <div className="flex-shrink-0">
         {editingValue ? (
           <div className="flex items-center gap-2">
-            <ValueInput
-              category={category}
-              value={editStr}
-              onChange={setEditStr}
-            />
+            <ValueInput category={category} value={editStr} onChange={setEditStr} />
             <button
               onMouseDown={commitValue}
-              className="text-[8px] border border-ink px-2 py-0.5 hover:bg-ink hover:text-shell transition-colors"
+              className="btn btn-sm btn-primary"
             >
-              save
+              Save
             </button>
             <button
               onMouseDown={() => {
                 setEditStr(valueToEditString(category, token.token_value));
                 setEditingValue(false);
               }}
-              className="text-[9px] text-ink-mute hover:text-ink"
+              className="text-[14px] text-muted hover:text-secondary transition-colors"
             >
               ✕
             </button>
           </div>
         ) : (
           <div
-            className="text-[9px] text-ink-mute font-mono cursor-text max-w-[180px] truncate hover:text-ink"
+            className="text-[12px] text-secondary font-mono cursor-text max-w-[180px] truncate hover:text-primary transition-colors"
             onClick={() => { setEditingValue(true); setEditingName(false); }}
             title="Click to edit value"
           >
@@ -149,11 +145,11 @@ export function TokenRow({
         )}
       </div>
 
-      {/* Delete — visible on hover */}
+      {/* Delete — visible on group hover */}
       <button
         type="button"
         onClick={handleDelete}
-        className="opacity-0 group-hover:opacity-100 ml-1 text-ink-mute hover:text-ink text-[12px] w-4 flex-shrink-0 transition-opacity leading-none"
+        className="opacity-0 group-hover:opacity-100 ml-1 text-muted hover:text-red text-[16px] w-5 flex-shrink-0 transition-all leading-none"
         title="Delete token"
       >
         ×

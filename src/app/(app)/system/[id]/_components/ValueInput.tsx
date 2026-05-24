@@ -37,18 +37,18 @@ export function TokenPreview({
   if (category === "color") {
     return (
       <div
-        className="w-7 h-7 border-2 border-ink flex-shrink-0"
-        style={{ background: typeof value === "string" ? value : "#ccc" }}
+        className="w-6 h-6 rounded border border-white/10 flex-shrink-0"
+        style={{ background: typeof value === "string" ? value : "#666" }}
       />
     );
   }
   if (category === "spacing") {
     const n = typeof value === "number" ? value : 0;
     return (
-      <div className="flex items-center h-7 flex-shrink-0">
+      <div className="flex items-center h-6 flex-shrink-0 w-10">
         <div
-          className="h-3 bg-[#C8C4B8] border-[1.5px] border-ink"
-          style={{ width: Math.min(Math.max(n, 4), 80) }}
+          className="h-2.5 bg-border-2 rounded-sm"
+          style={{ width: Math.min(Math.max(n, 4), 40) }}
         />
       </div>
     );
@@ -57,15 +57,15 @@ export function TokenPreview({
     const n = typeof value === "number" ? value : 0;
     return (
       <div
-        className="w-7 h-7 bg-[#C8C4B8] border-2 border-ink flex-shrink-0"
-        style={{ borderRadius: Math.min(n, 14) }}
+        className="w-6 h-6 bg-surface-3 border border-border flex-shrink-0"
+        style={{ borderRadius: Math.min(n, 12) }}
       />
     );
   }
   if (category === "shadow") {
     return (
       <div
-        className="w-7 h-7 bg-white border-2 border-ink flex-shrink-0"
+        className="w-6 h-6 bg-surface-2 border border-border rounded flex-shrink-0"
         style={{ boxShadow: typeof value === "string" ? value : undefined }}
       />
     );
@@ -74,9 +74,9 @@ export function TokenPreview({
     const t = (value ?? {}) as { size?: number; weight?: string };
     return (
       <div
-        className="w-7 h-7 grid place-items-center text-ink flex-shrink-0"
+        className="w-6 h-6 grid place-items-center text-primary flex-shrink-0"
         style={{
-          fontSize: Math.min(t.size ?? 14, 18),
+          fontSize: Math.min(t.size ?? 14, 16),
           fontWeight:
             t.weight === "bold" ? 700 : t.weight === "semibold" ? 600 : t.weight === "medium" ? 500 : 400,
         }}
@@ -85,8 +85,10 @@ export function TokenPreview({
       </div>
     );
   }
-  return <div className="w-7 h-7 flex-shrink-0" />;
+  return <div className="w-6 h-6 flex-shrink-0" />;
 }
+
+const inputCls = "bg-surface-3 border border-border focus:border-accent rounded px-2 text-[12px] font-mono h-7 outline-none text-primary placeholder:text-muted";
 
 /** Inline editor — rendered when a row is in edit mode */
 export function ValueInput({
@@ -101,18 +103,18 @@ export function ValueInput({
   if (category === "color") {
     const hex = value.startsWith("#") ? value : "#000000";
     return (
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-2">
         <input
           type="color"
           value={hex}
           onChange={(e) => onChange(e.target.value)}
-          className="w-7 h-7 border-2 border-ink cursor-pointer p-0 flex-shrink-0"
+          className="w-7 h-7 rounded border border-border cursor-pointer p-0 bg-transparent flex-shrink-0"
         />
         <input
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-20 border border-[#C8C4B8] bg-shell px-1.5 text-[9px] font-mono h-6 outline-none focus:border-ink"
+          className={`w-24 ${inputCls}`}
         />
       </div>
     );
@@ -120,14 +122,14 @@ export function ValueInput({
 
   if (category === "spacing" || category === "radii") {
     return (
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1.5">
         <input
           type="number"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-14 border border-[#C8C4B8] bg-shell px-1.5 text-[9px] font-mono h-6 outline-none focus:border-ink"
+          className={`w-16 ${inputCls}`}
         />
-        <span className="text-[9px] text-ink-mute">px</span>
+        <span className="text-[12px] text-muted">px</span>
       </div>
     );
   }
@@ -142,21 +144,21 @@ export function ValueInput({
     return (
       <div className="flex items-center gap-2 flex-wrap">
         <div className="flex items-center gap-1">
-          <span className="text-[8px] text-ink-mute uppercase tracking-wide">sz</span>
+          <span className="text-[11px] text-muted">sz</span>
           <input
             type="number"
             value={String(obj.size ?? "")}
             placeholder="14"
             onChange={(e) => update("size", Number(e.target.value))}
-            className="w-12 border border-[#C8C4B8] bg-shell px-1 text-[9px] font-mono h-6 outline-none focus:border-ink"
+            className={`w-14 ${inputCls}`}
           />
         </div>
         <div className="flex items-center gap-1">
-          <span className="text-[8px] text-ink-mute uppercase tracking-wide">wt</span>
+          <span className="text-[11px] text-muted">wt</span>
           <select
             value={String(obj.weight ?? "regular")}
             onChange={(e) => update("weight", e.target.value)}
-            className="border border-[#C8C4B8] bg-shell px-1 text-[9px] h-6 outline-none focus:border-ink"
+            className={`${inputCls} pr-2`}
           >
             <option value="regular">regular</option>
             <option value="medium">medium</option>
@@ -165,13 +167,13 @@ export function ValueInput({
           </select>
         </div>
         <div className="flex items-center gap-1">
-          <span className="text-[8px] text-ink-mute uppercase tracking-wide">ff</span>
+          <span className="text-[11px] text-muted">ff</span>
           <input
             type="text"
             value={String(obj.family ?? "")}
             placeholder="Inter"
             onChange={(e) => update("family", e.target.value)}
-            className="w-20 border border-[#C8C4B8] bg-shell px-1 text-[9px] font-mono h-6 outline-none focus:border-ink"
+            className={`w-24 ${inputCls}`}
           />
         </div>
       </div>
@@ -184,7 +186,7 @@ export function ValueInput({
       type="text"
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-44 border border-[#C8C4B8] bg-shell px-1.5 text-[9px] font-mono h-6 outline-none focus:border-ink"
+      className={`w-52 ${inputCls}`}
     />
   );
 }

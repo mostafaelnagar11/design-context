@@ -2,44 +2,83 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 :root {
-  --bg: #EDEBE4;
-  --shell: #F2F0EB;
-  --panel: #E8E5DE;
-  --sidebar: #E2DFD8;
-  --border: #1a1a1a;
-  --muted-border: #C8C4B8;
-  --ink: #1a1a1a;
-  --ink-soft: #666;
-  --ink-mute: #999;
+  --bg:        #080808;
+  --surface:   #111111;
+  --surface-2: #181818;
+  --surface-3: #222222;
+  --border:    #2a2a2a;
+  --border-2:  #383838;
+  --text:      #F0F0F0;
+  --text-2:    #888888;
+  --text-3:    #4a4a4a;
+  --accent:    #6366F1;
+  --green:     #22C55E;
+  --amber:     #F59E0B;
+  --red:       #EF4444;
 }
 
 html, body {
   background: var(--bg);
-  color: var(--ink);
-  font-family: 'Courier New', ui-monospace, monospace;
+  color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 @layer components {
-  .shell {
-    @apply border-2 border-ink bg-shell shadow-lofi;
-  }
+  /* Buttons */
   .btn {
-    @apply inline-flex items-center gap-1.5 h-8 px-3 border-2 border-ink text-[10px] font-bold tracking-wide uppercase;
+    @apply inline-flex items-center gap-2 h-9 px-4 rounded-lg text-[13px] font-medium transition-all duration-150 cursor-pointer;
   }
-  .btn-primary { @apply bg-ink text-shell; }
-  .btn-ghost { @apply border-mute text-soft; }
-  .btn-sm { @apply h-[26px] px-2.5 text-[9px] border; }
+  .btn-primary {
+    @apply bg-accent text-white hover:bg-accent-hover;
+  }
+  .btn-ghost {
+    @apply bg-transparent text-secondary border border-border hover:bg-surface-2 hover:text-primary;
+  }
+  .btn-danger {
+    @apply bg-transparent text-red border border-red/30 hover:bg-red/10;
+  }
+  .btn-sm {
+    @apply h-7 px-3 text-[12px] rounded-md;
+  }
+
+  /* Inputs */
   .input {
-    @apply h-[34px] border-2 border-ink bg-white px-3 text-[11px] w-full;
+    @apply h-10 rounded-lg border border-border bg-surface-2 px-3 text-[13px] text-primary w-full
+           placeholder:text-muted outline-none transition-colors
+           focus:border-accent focus:ring-1 focus:ring-accent/30;
   }
+
+  /* Cards */
+  .card {
+    @apply bg-surface border border-border rounded-xl overflow-hidden;
+  }
+  .card-hover {
+    @apply card transition-all duration-150 hover:border-border-2 hover:bg-surface-2;
+  }
+
+  /* Tags / badges */
   .tag {
-    @apply inline-block text-[8px] tracking-widest uppercase px-[7px] py-[2px] border-[1.5px] border-ink;
+    @apply inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium;
   }
-  .tag-filled { @apply bg-ink text-shell; }
-  .tag-green  { @apply border-[#16A34A] text-[#16A34A]; }
-  .tag-orange { @apply border-[#D97706] text-[#D97706]; }
+  .tag-green  { @apply bg-green/10 text-green; }
+  .tag-amber  { @apply bg-amber/10 text-amber; }
+  .tag-purple { @apply bg-accent/10 text-accent; }
+
+  /* Section label */
   .sec-label {
-    @apply text-[8px] tracking-[2px] uppercase text-ink-mute pb-2 border-b border-mute;
+    @apply text-[11px] font-medium text-secondary uppercase tracking-wider;
+  }
+
+  /* Sidebar nav item */
+  .nav-item {
+    @apply flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] text-secondary
+           hover:bg-surface-2 hover:text-primary transition-colors cursor-pointer;
+  }
+  .nav-item-active {
+    @apply nav-item bg-surface-2 text-primary;
   }
 }

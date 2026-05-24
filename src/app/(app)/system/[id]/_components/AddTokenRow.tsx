@@ -42,8 +42,8 @@ export function AddTokenRow({
   };
 
   return (
-    <div className="flex items-center px-3.5 py-2 gap-2.5 bg-shell border-b-2 border-ink min-h-[42px]">
-      {/* Live preview of new value */}
+    <div className="flex items-center px-4 py-3 gap-3 bg-surface min-h-[52px]">
+      {/* Live preview */}
       <div className="flex-shrink-0">
         <TokenPreview category={category} value={parsedValue} />
       </div>
@@ -58,7 +58,7 @@ export function AddTokenRow({
           if (e.key === "Enter") handleAdd();
           if (e.key === "Escape") onDone();
         }}
-        className="border border-[#C8C4B8] bg-white px-1.5 text-[10px] h-6 w-32 outline-none focus:border-ink flex-shrink-0"
+        className="bg-surface-3 border border-border focus:border-accent rounded px-2.5 text-[13px] h-8 w-36 outline-none text-primary placeholder:text-muted flex-shrink-0"
       />
 
       {/* Value input */}
@@ -70,13 +70,13 @@ export function AddTokenRow({
       <button
         onClick={handleAdd}
         disabled={isPending || !name.trim()}
-        className="text-[8px] border border-ink px-2.5 py-1 hover:bg-ink hover:text-shell disabled:opacity-40 transition-colors flex-shrink-0"
+        className="btn btn-sm btn-primary disabled:opacity-40 flex-shrink-0"
       >
         {isPending ? "…" : "Add"}
       </button>
       <button
         onClick={onDone}
-        className="text-[9px] text-ink-mute hover:text-ink flex-shrink-0"
+        className="text-muted hover:text-secondary transition-colors flex-shrink-0 text-[16px] leading-none"
       >
         ✕
       </button>

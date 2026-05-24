@@ -7,23 +7,22 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { data: { user } } = await supabase.auth.getUser();
 
   return (
-    <div className="min-h-screen p-6">
-      <div className="shell flex flex-col min-h-[calc(100vh-48px)]">
-        <nav className="h-12 border-b-2 border-ink flex items-center px-5 gap-3 bg-panel">
-          <Link href="/dashboard" className="text-[10px] font-bold tracking-[2px] bg-ink text-shell px-2.5 py-1">
-            DESIGNCTX
-          </Link>
-          <div className="flex-1" />
-          <Link href="/mcp-setup" className="btn btn-sm">MCP Setup</Link>
-          <form action={logoutAction}>
-            <button className="btn btn-sm">Log out</button>
-          </form>
-          <div className="w-7 h-7 border-[1.5px] border-ink rounded-full bg-[#D0CEC6] grid place-items-center text-[9px]">
-            {user?.email?.[0]?.toUpperCase() ?? "?"}
-          </div>
-        </nav>
-        <div className="flex-1 flex">{children}</div>
-      </div>
+    <div className="min-h-screen bg-bg flex flex-col">
+      {/* Top nav */}
+      <nav className="h-14 border-b border-border flex items-center px-6 gap-4 bg-surface shrink-0">
+        <Link href="/dashboard" className="text-[15px] font-semibold text-primary tracking-tight">
+          designctx
+        </Link>
+        <div className="flex-1" />
+        <Link href="/mcp-setup" className="btn btn-ghost btn-sm">MCP Setup</Link>
+        <form action={logoutAction}>
+          <button className="btn btn-ghost btn-sm">Sign out</button>
+        </form>
+        <div className="w-8 h-8 rounded-full bg-accent/20 border border-accent/30 grid place-items-center text-[12px] font-semibold text-accent">
+          {user?.email?.[0]?.toUpperCase() ?? "?"}
+        </div>
+      </nav>
+      <div className="flex-1 flex">{children}</div>
     </div>
   );
 }

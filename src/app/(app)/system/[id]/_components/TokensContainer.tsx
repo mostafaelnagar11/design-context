@@ -31,26 +31,24 @@ export function TokensContainer({
 
   return (
     <>
-      {/* Header row */}
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="sec-label border-0 p-0">
-          {label} — {total} TOKEN{total !== 1 ? "S" : ""}
+        <div className="flex items-center gap-2">
+          <span className="sec-label">{label}</span>
+          <span className="text-[11px] text-muted">{total}</span>
         </div>
         {!adding && (
-          <button
-            className="btn btn-sm"
-            onClick={() => setAdding(true)}
-          >
+          <button className="btn btn-ghost btn-sm" onClick={() => setAdding(true)}>
             + Add Token
           </button>
         )}
       </div>
 
-      {/* Add form — shown inline above groups */}
+      {/* Add form */}
       {adding && (
-        <div className="border-2 border-ink overflow-hidden">
-          <div className="px-3.5 py-2 bg-sidebar border-b border-[#D0CEC6] text-[9px] tracking-[1.5px] uppercase text-ink-mute">
-            New Token
+        <div className="card overflow-hidden">
+          <div className="px-4 py-2 border-b border-border bg-surface-2">
+            <span className="sec-label">New Token</span>
           </div>
           <AddTokenRow
             systemId={systemId}
@@ -62,17 +60,20 @@ export function TokensContainer({
 
       {/* Empty state */}
       {total === 0 && !adding && (
-        <div className="border-2 border-dashed border-[#B0ADA6] bg-[#EAE7E0] p-10 text-center text-[10px] text-ink-mute">
-          No {label.toLowerCase()} tokens yet — click Add Token to start.
+        <div className="border border-dashed border-border rounded-xl p-10 flex flex-col items-center gap-3 text-center">
+          <div className="text-[13px] text-secondary">No {label.toLowerCase()} tokens yet</div>
+          <button className="btn btn-ghost btn-sm" onClick={() => setAdding(true)}>
+            + Add your first token
+          </button>
         </div>
       )}
 
       {/* Token groups */}
       {groups.map((g) => (
-        <div key={g.name} className="border-2 border-ink overflow-hidden">
-          <div className="px-3.5 py-2 bg-sidebar border-b border-[#D0CEC6] text-[9px] tracking-[1.5px] uppercase flex items-center justify-between">
-            <span>{g.name}</span>
-            <span className="text-ink-mute">{g.tokens.length} tokens</span>
+        <div key={g.name} className="card overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-border bg-surface-2 flex items-center justify-between">
+            <span className="text-[12px] font-medium text-primary">{g.name}</span>
+            <span className="text-[11px] text-muted">{g.tokens.length}</span>
           </div>
           {g.tokens.map((t) => (
             <TokenRow

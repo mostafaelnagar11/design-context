@@ -11,37 +11,45 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex-1 flex">
-      <aside className="w-[196px] border-r-2 border-ink bg-sidebar py-3 flex flex-col gap-[1px]">
-        <div className="px-3.5 py-2 text-[8px] tracking-[2px] uppercase text-ink-mute">
-          Workspace
+      {/* Sidebar */}
+      <aside className="w-52 border-r border-border bg-surface flex flex-col py-4 shrink-0">
+        <div className="px-4 mb-3">
+          <span className="sec-label">Workspace</span>
         </div>
-        <div className="px-3.5 py-2 text-[10px] bg-ink text-shell">Design Systems</div>
-        <Link href="/mcp-setup" className="px-3.5 py-2 text-[10px]">MCP Setup</Link>
-        <div className="h-px bg-[#C8C4B8] my-1.5 mx-3.5" />
-        <div className="px-3.5 py-2 text-[8px] tracking-[2px] uppercase text-ink-mute">
-          Systems
-        </div>
-        {systems?.length ? (
-          systems.map((s) => (
-            <Link
-              key={s.id}
-              href={`/system/${s.id}`}
-              className="px-5 py-2 text-[10px]"
-            >
-              {s.name}
-            </Link>
-          ))
-        ) : (
-          <div className="px-3.5 py-2 text-[10px] italic text-mute">No systems yet</div>
+        <Link href="/dashboard" className="nav-item-active mx-2">
+          <span className="text-[14px]">▦</span> Design Systems
+        </Link>
+        <Link href="/mcp-setup" className="nav-item mx-2">
+          <span className="text-[14px]">⌘</span> MCP Setup
+        </Link>
+
+        {systems && systems.length > 0 && (
+          <>
+            <div className="px-4 mt-5 mb-2">
+              <span className="sec-label">Systems</span>
+            </div>
+            {systems.map((s) => (
+              <Link
+                key={s.id}
+                href={`/system/${s.id}`}
+                className="nav-item mx-2 truncate"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-border-2 shrink-0" />
+                <span className="truncate">{s.name}</span>
+              </Link>
+            ))}
+          </>
         )}
       </aside>
-      <main className="flex-1 p-7 flex flex-col gap-5">
-        <div className="flex items-start justify-between">
+
+      {/* Main */}
+      <main className="flex-1 p-8 flex flex-col gap-6 overflow-y-auto">
+        <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold tracking-tight">Design Systems</h1>
-            <div className="text-[10px] text-soft mt-1">
-              {systems?.length ?? 0} systems
-            </div>
+            <h1 className="text-[20px] font-semibold text-primary tracking-tight">Design Systems</h1>
+            <p className="text-[13px] text-secondary mt-0.5">
+              {systems?.length ?? 0} system{(systems?.length ?? 0) !== 1 ? "s" : ""}
+            </p>
           </div>
           <form action={createSystemAction}>
             <button className="btn btn-primary">+ New System</button>
@@ -54,21 +62,16 @@ export default async function DashboardPage() {
               <Link
                 key={s.id}
                 href={`/system/${s.id}`}
-                className="border-2 border-ink overflow-hidden bg-shell"
+                className="card-hover flex flex-col overflow-hidden"
               >
-                <div className="h-20 bg-[#D0CEC6] border-b-2 border-ink relative" />
-                <div className="p-3 flex items-center justify-between gap-2">
-                  <div>
-                    <div className="text-[11px] font-bold">{s.name}</div>
-                    <div className="text-[9px] text-ink-mute mt-0.5 capitalize">
-                      {s.status}
-                    </div>
+                {/* Preview swatch */}
+                <div className="h-24 bg-surface-3 border-b border-border" />
+                <div className="p-4 flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-[14px] font-medium text-primary truncate">{s.name}</div>
+                    <div className="text-[12px] text-secondary mt-0.5 capitalize">{s.status}</div>
                   </div>
-                  <span
-                    className={`tag ${
-                      s.status === "published" ? "tag-green" : "tag-orange"
-                    }`}
-                  >
+                  <span className={`tag shrink-0 ${s.status === "published" ? "tag-green" : "tag-amber"}`}>
                     {s.status}
                   </span>
                 </div>
@@ -76,15 +79,17 @@ export default async function DashboardPage() {
             ))}
           </div>
         ) : (
-          <div className="border-2 border-dashed border-[#B0ADA6] bg-[#EAE7E0] flex flex-col items-center justify-center gap-3 p-16 text-center">
-            <div className="w-12 h-12 border-2 border-[#B0ADA6] grid place-items-center text-xl text-[#B0ADA6]">
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 min-h-[320px]">
+            <div className="w-12 h-12 rounded-xl bg-surface-2 border border-border flex items-center justify-center text-[22px] text-muted">
               ◈
             </div>
-            <div className="text-[13px] font-bold text-soft">No design systems yet</div>
-            <div className="text-[10px] text-ink-mute max-w-xs leading-relaxed">
-              Create your first system to start populating tokens.
+            <div className="text-center">
+              <div className="text-[15px] font-medium text-primary">No design systems yet</div>
+              <div className="text-[13px] text-secondary mt-1 max-w-xs leading-relaxed">
+                Create your first system to start populating tokens and connecting to Claude.
+              </div>
             </div>
-            <form action={createSystemAction} className="mt-2">
+            <form action={createSystemAction}>
               <button className="btn btn-primary">+ Create Design System</button>
             </form>
           </div>
