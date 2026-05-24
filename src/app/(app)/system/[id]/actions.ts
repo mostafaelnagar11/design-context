@@ -236,6 +236,7 @@ export async function importFromFigmaStylesAction(formData: FormData): Promise<I
   // 1a. Lightweight fetch (depth=1) — small response, gets page IDs + hopefully the styles map
   let stylesMap: Record<string, FigmaStyleMeta> = {};
   let pageIds: string[] = [];
+  const pageNames: Record<string, string> = {};
 
   try {
     const res = await figmaFetch(`https://api.figma.com/v1/files/${fileKey}?depth=1`);
@@ -244,32 +245,44 @@ export async function importFromFigmaStylesAction(formData: FormData): Promise<I
       if (res.status === 429) return { ok: false, error: "Figma rate limit hit — wait a minute and try again." };
       return { ok: false, error: `Figma API error ${res.status}: ${text.slice(0, 200)}` };
     }
-    const fileJson: { styles?: Record<string, FigmaStyleMeta>; document?: { children?: { id: string }[] } } = await res.json();
+    const fileJson: { styles?: Record<string, FigmaStyleMeta>; document?: { children?: { id: string; name: string }[] } } = await res.json();
     stylesMap = fileJson.styles ?? {};
-    pageIds = (fileJson.document?.children ?? []).map((p) => p.id);
+    const pages = fileJson.document?.children ?? [];
+    pageIds = pages.map((p) => p.id);
+    for (const p of pages) pageNames[p.id] = p.name;
   } catch (e) {
     return { ok: false, error: `Network error: ${String(e)}` };
   }
 
+  const pageName = (id: string) => pageNames[id];
+
   // 1b. If the root styles map is empty (common when styles live inside frames),
-  //     fetch each page via /nodes — those responses include a per-node styles map
-  //     and are much smaller than the full file document.
+  //     fetch pages ONE AT A TIME — prioritise pages whose names suggest they hold
+  //     style definitions. Stop as soon as we find styles.
+  //     This is critical for large files (e.g. 1000+ component UI kits) where
+  //     fetching all pages at once would timeout.
   if (Object.keys(stylesMap).length === 0 && pageIds.length > 0) {
-    try {
-      const res = await figmaFetch(
-        `https://api.figma.com/v1/files/${fileKey}/nodes?ids=${pageIds.join(",")}`
-      );
-      if (res.ok) {
+    // Sort: pages whose names suggest styles come first
+    const STYLE_KEYWORDS = /style|foundation|color|colour|token|typography|text|effect|shadow|radius|spacing/i;
+    const sorted = [...pageIds].sort((a, b) => {
+      const aName = pageName(a) ?? "";
+      const bName = pageName(b) ?? "";
+      return (STYLE_KEYWORDS.test(bName) ? 1 : 0) - (STYLE_KEYWORDS.test(aName) ? 1 : 0);
+    });
+
+    for (const pid of sorted) {
+      try {
+        const res = await figmaFetch(`https://api.figma.com/v1/files/${fileKey}/nodes?ids=${pid}`);
+        if (!res.ok) continue;
         const cl = Number(res.headers.get("content-length") ?? 0);
-        if (cl > 200_000_000) {
-          return { ok: false, error: "Figma file pages are too large to parse (> 200 MB). Try splitting your design across smaller files." };
-        }
+        if (cl > 150_000_000) continue; // skip pages > 150 MB
         const nodesJson: { nodes: Record<string, { styles?: Record<string, FigmaStyleMeta> } | null> } = await res.json();
         for (const node of Object.values(nodesJson.nodes)) {
           if (node?.styles) Object.assign(stylesMap, node.styles);
         }
-      }
-    } catch { /* non-fatal — fall through to the empty-styles error below */ }
+        if (Object.keys(stylesMap).length > 0) break; // found styles — stop
+      } catch { continue; }
+    }
   }
 
   const styleEntries = Object.entries(stylesMap)
