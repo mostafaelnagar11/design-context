@@ -199,6 +199,167 @@ type FigmaNodeDoc = {
   fontName?: { family: string; style: string };
 };
 
+/**
+ * Fast path: call Figma's dedicated /styles endpoint which returns only style
+ * metadata (name, style_type, node_id) — no document tree, no timeout risk.
+ * Works for files whose styles are published to a team library (Personal / Pro).
+ * Returns a nodeId→StyleMeta map, or null when the endpoint returns nothing.
+ */
+async function fetchPublishedStylesMeta(
+  fileKey: string,
+  token: string
+): Promise<Record<string, FigmaStyleMeta> | null> {
+  try {
+    const res = await fetch(`https://api.figma.com/v1/files/${fileKey}/styles`, {
+      headers: { Authorization: `Bearer ${token}` },
+      next: { revalidate: 0 },
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as {
+      error?: boolean;
+      meta?: {
+        styles: Array<{
+          node_id: string;
+          name: string;
+          style_type: "FILL" | "TEXT" | "EFFECT" | "GRID";
+        }>;
+      };
+    };
+    const list = json.meta?.styles;
+    if (!list?.length) return null;
+    const map: Record<string, FigmaStyleMeta> = {};
+    for (const s of list) {
+      if (s.node_id) map[s.node_id] = { name: s.name, styleType: s.style_type };
+    }
+    return Object.keys(map).length ? map : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Slow-path fallback: stream-parse a Figma /nodes response to extract the
+ * page-level styles registry without ever buffering the full JSON in memory.
+ *
+ * The registry lives at nodes[PAGE_ID].styles and its entries are the only
+ * place in the response where "styleType" appears as an object key.  We scan
+ * incoming chunks for that string, backtrack to the enclosing "styles":{,
+ * then extract the complete JSON object — and immediately cancel the stream.
+ *
+ * This avoids both the V8 string-length overflow (no full buffer) and saves
+ * any remaining download time once the styles are extracted.
+ */
+async function extractStylesFromNodeStream(
+  res: Response,
+): Promise<Record<string, FigmaStyleMeta>> {
+  // No ReadableStream support — fall back to buffered parse
+  if (!res.body) {
+    try {
+      const json = (await res.json()) as {
+        nodes: Record<string, { styles?: Record<string, FigmaStyleMeta> } | null>;
+      };
+      const result: Record<string, FigmaStyleMeta> = {};
+      for (const node of Object.values(json.nodes ?? {})) {
+        if (node?.styles) Object.assign(result, node.styles);
+      }
+      return result;
+    } catch {
+      return {};
+    }
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  const TAIL_MAX = 5 * 1024 * 1024; // 5 MB rolling window
+
+  let tail = "";
+  // Once "styleType" is spotted we stop trimming tail so the object stays intact
+  let lockedForExtraction = false;
+
+  /** Find the matching closing brace; returns the complete JSON string or null. */
+  function extractObject(s: string): string | null {
+    if (!s.startsWith("{")) return null;
+    let depth = 0, inStr = false, esc = false;
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i]!;
+      if (esc) { esc = false; continue; }
+      if (c === "\\" && inStr) { esc = true; continue; }
+      if (c === '"') { inStr = !inStr; continue; }
+      if (inStr) continue;
+      if (c === "{") depth++;
+      else if (c === "}") { if (--depth === 0) return s.slice(0, i + 1); }
+    }
+    return null; // object not yet complete
+  }
+
+  /**
+   * Try to parse the page-level styles map out of the current tail.
+   * Returns the map when fully extracted, null when more data is needed.
+   */
+  function tryExtract(): Record<string, FigmaStyleMeta> | null {
+    let search = 0;
+    while (true) {
+      const idx = tail.indexOf('"styleType"', search);
+      if (idx === -1) return null;
+
+      // Backtrack to the nearest preceding "styles":{
+      const before = tail.slice(0, idx);
+      const sKey = before.lastIndexOf('"styles"');
+      if (sKey === -1) { search = idx + 1; continue; }
+
+      const afterKey = tail.slice(sKey + 8); // skip `"styles"`
+      const colon = afterKey.indexOf(":");
+      if (colon === -1) { search = idx + 1; continue; }
+
+      const rest = afterKey.slice(colon + 1).trimStart();
+      if (!rest.startsWith("{")) { search = idx + 1; continue; }
+
+      const objStr = extractObject(rest);
+      if (objStr === null) return null; // incomplete — need more data
+
+      try {
+        const parsed = JSON.parse(objStr) as Record<string, unknown>;
+        const first = Object.values(parsed)[0];
+        if (first && typeof first === "object" && "styleType" in first) {
+          return parsed as Record<string, FigmaStyleMeta>;
+        }
+      } catch { /* malformed — keep searching */ }
+
+      search = idx + 1;
+    }
+  }
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      tail += decoder.decode(value, { stream: true });
+
+      if (!lockedForExtraction && tail.includes('"styleType"')) {
+        lockedForExtraction = true;
+      }
+
+      const result = tryExtract();
+      if (result) {
+        reader.cancel().catch(() => {});
+        return result;
+      }
+
+      // Trim only while we haven't spotted styleType yet (never trim a partial object)
+      if (!lockedForExtraction && tail.length > TAIL_MAX) {
+        const lastS = tail.lastIndexOf('"styles"');
+        const trimAt = lastS > 0 ? lastS : tail.length - TAIL_MAX;
+        tail = tail.slice(Math.max(0, trimAt));
+      }
+    }
+  } catch { /* stream read error */ } finally {
+    reader.cancel().catch(() => {});
+  }
+
+  return {};
+}
+
 export async function importFromFigmaStylesAction(formData: FormData): Promise<ImportResult> {
   const systemId = String(formData.get("system_id"));
   await assertOwner(systemId);
@@ -233,7 +394,8 @@ export async function importFromFigmaStylesAction(formData: FormData): Promise<I
     return res;
   }
 
-  // 1a. Lightweight fetch (depth=1) — small response, gets page IDs + hopefully the styles map
+  // ── Step 1a: lightweight depth=1 file fetch ──────────────────────────────
+  // Gives us page IDs and may already contain the root styles map.
   let stylesMap: Record<string, FigmaStyleMeta> = {};
   let pageIds: string[] = [];
   const pageNames: Record<string, string> = {};
@@ -254,34 +416,35 @@ export async function importFromFigmaStylesAction(formData: FormData): Promise<I
     return { ok: false, error: `Network error: ${String(e)}` };
   }
 
-  const pageName = (id: string) => pageNames[id];
+  // ── Step 1b: fast path — dedicated /styles endpoint ──────────────────────
+  // Returns published-style metadata with node IDs in a tiny response.
+  // Handles large files (e.g. 1000+ component UI kits) without timeout risk.
+  if (Object.keys(stylesMap).length === 0) {
+    const published = await fetchPublishedStylesMeta(fileKey, figmaToken);
+    if (published) stylesMap = published;
+  }
 
-  // 1b. If the root styles map is empty (common when styles live inside frames),
-  //     fetch pages ONE AT A TIME — prioritise pages whose names suggest they hold
-  //     style definitions. Stop as soon as we find styles.
-  //     This is critical for large files (e.g. 1000+ component UI kits) where
-  //     fetching all pages at once would timeout.
+  // ── Step 1c: stream-parse fallback ───────────────────────────────────────
+  // For files with unpublished local styles the /styles endpoint returns nothing.
+  // We fetch pages one-at-a-time, stream-parsing each response to extract the
+  // page-level styles registry without buffering the full JSON.
   if (Object.keys(stylesMap).length === 0 && pageIds.length > 0) {
-    // Sort: pages whose names suggest styles come first
     const STYLE_KEYWORDS = /style|foundation|color|colour|token|typography|text|effect|shadow|radius|spacing/i;
     const sorted = [...pageIds].sort((a, b) => {
-      const aName = pageName(a)?.toLowerCase() ?? "";
-      const bName = pageName(b)?.toLowerCase() ?? "";
-      // If user gave a page hint, put exact match first
-      return (STYLE_KEYWORDS.test(bName) ? 1 : 0) - (STYLE_KEYWORDS.test(aName) ? 1 : 0);
+      const aMatch = STYLE_KEYWORDS.test(pageNames[a] ?? "") ? 1 : 0;
+      const bMatch = STYLE_KEYWORDS.test(pageNames[b] ?? "") ? 1 : 0;
+      return bMatch - aMatch;
     });
 
     for (const pid of sorted) {
       try {
         const res = await figmaFetch(`https://api.figma.com/v1/files/${fileKey}/nodes?ids=${pid}`);
         if (!res.ok) continue;
-        const cl = Number(res.headers.get("content-length") ?? 0);
-        if (cl > 150_000_000) continue; // skip pages > 150 MB
-        const nodesJson: { nodes: Record<string, { styles?: Record<string, FigmaStyleMeta> } | null> } = await res.json();
-        for (const node of Object.values(nodesJson.nodes)) {
-          if (node?.styles) Object.assign(stylesMap, node.styles);
+        const extracted = await extractStylesFromNodeStream(res);
+        if (Object.keys(extracted).length > 0) {
+          Object.assign(stylesMap, extracted);
+          break;
         }
-        if (Object.keys(stylesMap).length > 0) break; // found styles — stop
       } catch { continue; }
     }
   }
