@@ -5,6 +5,7 @@ import {
   publishSystemAction,
   unpublishSystemAction,
 } from "../../dashboard/actions";
+import { FigmaImportButton } from "./_components/FigmaImportButton";
 
 const TABS = [
   { slug: "colors", label: "Colors", icon: "●" },
@@ -57,6 +58,7 @@ export default async function SystemLayout({
           {system.status}
         </span>
         <div className="flex-1" />
+        <FigmaImportButton systemId={system.id} />
         <form action={isPublished ? unpublishSystemAction : publishSystemAction}>
           <input type="hidden" name="id" value={system.id} />
           <button
