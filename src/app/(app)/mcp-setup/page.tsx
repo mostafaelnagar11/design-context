@@ -1,7 +1,7 @@
 import { readFreshApiKey, regenerateApiKeyAction } from "@/app/(auth)/actions";
 import ApiKeyReveal from "./ApiKeyReveal";
 
-const MCP_URL = "https://mcp.designctx.io";
+const MCP_URL = "https://design-context-production.up.railway.app/sse";
 
 export default async function McpSetupPage() {
   const freshKey = await readFreshApiKey();
