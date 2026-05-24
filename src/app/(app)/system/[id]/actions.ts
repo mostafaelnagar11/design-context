@@ -424,10 +424,13 @@ export async function importFromFigmaStylesAction(formData: FormData): Promise<I
     if (published) stylesMap = published;
   }
 
-  // ── Step 1c: stream-parse fallback ───────────────────────────────────────
+  // ── Step 1c: depth-limited per-page fetch ────────────────────────────────
   // For files with unpublished local styles the /styles endpoint returns nothing.
-  // We fetch pages one-at-a-time, stream-parsing each response to extract the
-  // page-level styles registry without buffering the full JSON.
+  // We fetch style-priority pages with depth=6, which caps the response at a few
+  // MB (page canvas → section → group → swatch → …) instead of the full 100 MB+
+  // document tree. The page-level styles registry is populated with all styles
+  // referenced by nodes within the returned depth — which is enough for typical
+  // design-system foundations pages (Colors, Typography, Shadows).
   if (Object.keys(stylesMap).length === 0 && pageIds.length > 0) {
     const STYLE_KEYWORDS = /style|foundation|color|colour|token|typography|text|effect|shadow|radius|spacing/i;
     const sorted = [...pageIds].sort((a, b) => {
@@ -438,13 +441,27 @@ export async function importFromFigmaStylesAction(formData: FormData): Promise<I
 
     for (const pid of sorted) {
       try {
-        const res = await figmaFetch(`https://api.figma.com/v1/files/${fileKey}/nodes?ids=${pid}`);
+        // depth=6: enough for deeply-nested swatch frames without downloading the
+        // entire component tree. For most foundations pages this is <5 MB.
+        const res = await figmaFetch(
+          `https://api.figma.com/v1/files/${fileKey}/nodes?ids=${pid}&depth=6`
+        );
         if (!res.ok) continue;
-        const extracted = await extractStylesFromNodeStream(res);
-        if (Object.keys(extracted).length > 0) {
+
+        const cl = Number(res.headers.get("content-length") ?? 0);
+        if (cl > 0 && cl > 20_000_000) {
+          // Unexpectedly large even at depth=6 — stream-parse to avoid overflow
+          const extracted = await extractStylesFromNodeStream(res);
           Object.assign(stylesMap, extracted);
-          break;
+        } else {
+          const nodesJson = await res.json() as {
+            nodes: Record<string, { styles?: Record<string, FigmaStyleMeta> } | null>;
+          };
+          for (const node of Object.values(nodesJson.nodes)) {
+            if (node?.styles) Object.assign(stylesMap, node.styles);
+          }
         }
+        if (Object.keys(stylesMap).length > 0) break;
       } catch { continue; }
     }
   }
