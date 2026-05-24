@@ -221,16 +221,31 @@ export async function importFromFigmaStylesAction(formData: FormData): Promise<I
   const fileKey = extractFileKey(figmaUrl);
   if (!fileKey) return { ok: false, error: "Could not extract a file key from that URL." };
 
-  // 1. Fetch file metadata — styles are at the root, keys are node IDs
+  // Helper: fetch with one automatic retry on 429
+  async function figmaFetch(url: string): Promise<Response> {
+    const headers = { Authorization: `Bearer ${figmaToken}` };
+    let res = await fetch(url, { headers, next: { revalidate: 0 } });
+    if (res.status === 429) {
+      const retryAfter = Number(res.headers.get("Retry-After") ?? 10) * 1000;
+      await new Promise((r) => setTimeout(r, retryAfter || 10_000));
+      res = await fetch(url, { headers, next: { revalidate: 0 } });
+    }
+    return res;
+  }
+
+  // 1. Fetch file — depth=2 so style nodes inside frames are included in the styles map
   let fileJson: { styles?: Record<string, FigmaStyleMeta> };
   try {
-    const res = await fetch(
-      `https://api.figma.com/v1/files/${fileKey}?depth=1`,
-      { headers: { Authorization: `Bearer ${figmaToken}` }, next: { revalidate: 0 } }
-    );
+    const res = await figmaFetch(`https://api.figma.com/v1/files/${fileKey}?depth=2`);
     if (!res.ok) {
       const text = await res.text();
+      if (res.status === 429) return { ok: false, error: "Figma rate limit hit — wait a minute and try again." };
       return { ok: false, error: `Figma API error ${res.status}: ${text.slice(0, 200)}` };
+    }
+    // Guard against huge files (> 200 MB) that would crash the string parser
+    const contentLength = Number(res.headers.get("content-length") ?? 0);
+    if (contentLength > 200_000_000) {
+      return { ok: false, error: "Figma file is too large to parse (> 200 MB). Try a smaller file or a file with fewer nodes." };
     }
     fileJson = await res.json();
   } catch (e) {
@@ -238,30 +253,26 @@ export async function importFromFigmaStylesAction(formData: FormData): Promise<I
   }
 
   const styles = fileJson.styles ?? {};
-  const styleCount = Object.keys(styles).length;
-
-  if (styleCount === 0) {
-    return { ok: false, error: `No styles found in this file (API returned 0 styles). Keys in response: ${Object.keys(fileJson).join(", ")}` };
-  }
-
   const styleEntries = Object.entries(styles)
     .filter(([, s]) => s.styleType !== "GRID")
     .map(([nodeId, s]) => ({ ...s, nodeId }));
 
   if (!styleEntries.length) {
-    return { ok: false, error: "File only has Grid styles — no paint, text, or effect styles to import." };
+    const total = Object.keys(styles).length;
+    return { ok: false, error: total > 0
+      ? "File only has Grid styles — no paint, text, or effect styles to import."
+      : "No styles found. Make sure the file has local paint, text, or effect styles (not just styles from a linked library)."
+    };
   }
 
-  // 2. Batch-fetch all style nodes
+  // 2. Batch-fetch the style nodes to read actual values
   const nodeIdsParam = styleEntries.map((s) => s.nodeId).join(",");
   let nodesJson: { nodes: Record<string, { document: FigmaNodeDoc } | null> };
   try {
-    const res = await fetch(
-      `https://api.figma.com/v1/files/${fileKey}/nodes?ids=${nodeIdsParam}`,
-      { headers: { Authorization: `Bearer ${figmaToken}` }, next: { revalidate: 0 } }
-    );
+    const res = await figmaFetch(`https://api.figma.com/v1/files/${fileKey}/nodes?ids=${nodeIdsParam}`);
     if (!res.ok) {
       const text = await res.text();
+      if (res.status === 429) return { ok: false, error: "Figma rate limit hit — wait a minute and try again." };
       return { ok: false, error: `Figma nodes API error ${res.status}: ${text.slice(0, 200)}` };
     }
     nodesJson = await res.json();
