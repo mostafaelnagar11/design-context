@@ -1,11 +1,12 @@
 import Link from "next/link";
+import { Logo } from "@/components/Logo";
 
 export default function Landing() {
   return (
     <main className="min-h-screen bg-bg flex flex-col">
       {/* Nav */}
       <nav className="h-14 border-b border-border flex items-center px-8 gap-4">
-        <span className="text-[16px] font-semibold text-primary tracking-tight">designctx</span>
+        <Logo />
         <div className="flex-1" />
         <Link href="/login" className="btn btn-ghost btn-sm">Sign in</Link>
         <Link href="/signup" className="btn btn-primary btn-sm">Get started free</Link>
@@ -18,6 +19,8 @@ export default function Landing() {
             <span className="w-1.5 h-1.5 rounded-full bg-accent" />
             <span className="text-[12px] text-accent font-medium">MCP-powered design tokens</span>
           </div>
+
+          <Logo size={56} showName={false} />
 
           <h1 className="text-[48px] font-semibold text-primary leading-[1.1] tracking-tight">
             Your design system.<br />

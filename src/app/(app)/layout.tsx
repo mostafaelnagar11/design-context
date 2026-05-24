@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { logoutAction } from "../(auth)/actions";
+import { Logo } from "@/components/Logo";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
@@ -10,8 +11,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen bg-bg flex flex-col">
       {/* Top nav */}
       <nav className="h-14 border-b border-border flex items-center px-6 gap-4 bg-surface shrink-0">
-        <Link href="/dashboard" className="text-[15px] font-semibold text-primary tracking-tight">
-          designctx
+        <Link href="/dashboard">
+          <Logo />
         </Link>
         <div className="flex-1" />
         <Link href="/mcp-setup" className="btn btn-ghost btn-sm">MCP Setup</Link>

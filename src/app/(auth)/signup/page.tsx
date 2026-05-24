@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { signupAction } from "../actions";
+import { Logo } from "@/components/Logo";
 
 export default function SignupPage({
   searchParams,
@@ -9,8 +10,8 @@ export default function SignupPage({
   return (
     <main className="min-h-screen bg-bg flex items-center justify-center p-6">
       <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="text-[22px] font-semibold text-primary mb-1">designctx</div>
+        <div className="text-center mb-8 flex flex-col items-center gap-3">
+          <Logo size={36} />
           <div className="text-[13px] text-secondary">Your design system. Inside Claude.</div>
         </div>
         <form action={signupAction} className="card p-6 flex flex-col gap-5">
