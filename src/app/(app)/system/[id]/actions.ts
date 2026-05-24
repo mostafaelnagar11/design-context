@@ -235,35 +235,50 @@ export async function importFromFigmaStylesAction(formData: FormData): Promise<I
     return res;
   }
 
-  // 1. Fetch file — depth=2 so style nodes inside frames are included in the styles map
-  let fileJson: { styles?: Record<string, FigmaStyleMeta> };
+  // 1a. Lightweight fetch (depth=1) — small response, gets page IDs + hopefully the styles map
+  let stylesMap: Record<string, FigmaStyleMeta> = {};
+  let pageIds: string[] = [];
+
   try {
-    const res = await figmaFetch(`https://api.figma.com/v1/files/${fileKey}?depth=2`);
+    const res = await figmaFetch(`https://api.figma.com/v1/files/${fileKey}?depth=1`);
     if (!res.ok) {
       const text = await res.text();
       if (res.status === 429) return { ok: false, error: "Figma rate limit hit — wait a minute and try again." };
       return { ok: false, error: `Figma API error ${res.status}: ${text.slice(0, 200)}` };
     }
-    // Guard against huge files (> 200 MB) that would crash the string parser
-    const contentLength = Number(res.headers.get("content-length") ?? 0);
-    if (contentLength > 200_000_000) {
-      return { ok: false, error: "Figma file is too large to parse (> 200 MB). Try a smaller file or a file with fewer nodes." };
-    }
-    fileJson = await res.json();
+    const fileJson: { styles?: Record<string, FigmaStyleMeta>; document?: { children?: { id: string }[] } } = await res.json();
+    stylesMap = fileJson.styles ?? {};
+    pageIds = (fileJson.document?.children ?? []).map((p) => p.id);
   } catch (e) {
     return { ok: false, error: `Network error: ${String(e)}` };
   }
 
-  const styles = fileJson.styles ?? {};
-  const styleEntries = Object.entries(styles)
+  // 1b. If the root styles map is empty (common when styles live inside frames),
+  //     fetch each page via /nodes — those responses include a per-node styles map
+  //     and are much smaller than the full file document.
+  if (Object.keys(stylesMap).length === 0 && pageIds.length > 0) {
+    try {
+      const res = await figmaFetch(
+        `https://api.figma.com/v1/files/${fileKey}/nodes?ids=${pageIds.join(",")}&depth=1`
+      );
+      if (res.ok) {
+        const nodesJson: { nodes: Record<string, { styles?: Record<string, FigmaStyleMeta> } | null> } = await res.json();
+        for (const node of Object.values(nodesJson.nodes)) {
+          if (node?.styles) Object.assign(stylesMap, node.styles);
+        }
+      }
+    } catch { /* non-fatal — fall through to the empty-styles error below */ }
+  }
+
+  const styleEntries = Object.entries(stylesMap)
     .filter(([, s]) => s.styleType !== "GRID")
     .map(([nodeId, s]) => ({ ...s, nodeId }));
 
   if (!styleEntries.length) {
-    const total = Object.keys(styles).length;
+    const total = Object.keys(stylesMap).length;
     return { ok: false, error: total > 0
       ? "File only has Grid styles — no paint, text, or effect styles to import."
-      : "No styles found. Make sure the file has local paint, text, or effect styles (not just styles from a linked library)."
+      : "No styles found. Make sure the file has local paint, text, or effect styles. If your styles come from a linked library, open the library file itself and import from there."
     };
   }
 
