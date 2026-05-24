@@ -90,10 +90,20 @@ export function FigmaImportButton({ systemId, isConnected, figmaEmail }: Props) 
     fd.set("system_id", systemId);
     setStep("loading");
     startTransition(async () => {
-      const action = mode === "styles" ? importFromFigmaStylesAction : importFromFigmaAction;
-      const res = await action(fd);
-      setResult(res);
-      setStep(res.ok ? "done" : "error");
+      try {
+        const action = mode === "styles" ? importFromFigmaStylesAction : importFromFigmaAction;
+        const res = await action(fd);
+        if (!res) {
+          setResult({ ok: false, error: "Request timed out. The Figma file may be too large — try again." });
+          setStep("error");
+          return;
+        }
+        setResult(res);
+        setStep(res.ok ? "done" : "error");
+      } catch (err) {
+        setResult({ ok: false, error: `Unexpected error: ${String(err)}` });
+        setStep("error");
+      }
     });
   };
 
