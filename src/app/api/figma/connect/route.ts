@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   const params = new URLSearchParams({
     client_id: process.env.FIGMA_CLIENT_ID!,
     redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/figma/callback`,
-    scope: "current_user:read,file_content:read",
+    scope: "current_user:read,file_variables:read",
     state,
     response_type: "code",
   });
