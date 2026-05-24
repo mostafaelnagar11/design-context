@@ -20,7 +20,7 @@ export default function Landing() {
             <span className="text-[12px] text-accent font-medium">MCP-powered design tokens</span>
           </div>
 
-          <Logo size={56} showName={false} />
+          <Logo size={96} showName={false} />
 
           <h1 className="text-[48px] font-semibold text-primary leading-[1.1] tracking-tight">
             Your design system.<br />

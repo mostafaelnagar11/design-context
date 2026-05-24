@@ -1,6 +1,6 @@
 import Image from "next/image";
 
-export function Logo({ size = 20, showName = true }: { size?: number; showName?: boolean }) {
+export function Logo({ size = 24, showName = true }: { size?: number; showName?: boolean }) {
   return (
     <span className="inline-flex items-center gap-2">
       <Image

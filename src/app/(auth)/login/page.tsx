@@ -11,7 +11,7 @@ export default function LoginPage({
     <main className="min-h-screen bg-bg flex items-center justify-center p-6">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8 flex flex-col items-center gap-3">
-          <Logo size={36} />
+          <Logo size={52} />
           <div className="text-[13px] text-secondary">Your design system. Inside Claude.</div>
         </div>
         <form action={loginAction} className="card p-6 flex flex-col gap-5">
