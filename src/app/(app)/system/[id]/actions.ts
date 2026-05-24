@@ -225,7 +225,7 @@ export async function importFromFigmaStylesAction(formData: FormData): Promise<I
   let fileJson: { styles?: Record<string, FigmaStyleMeta> };
   try {
     const res = await fetch(
-      `https://api.figma.com/v1/files/${fileKey}`,
+      `https://api.figma.com/v1/files/${fileKey}?depth=1`,
       { headers: { Authorization: `Bearer ${figmaToken}` }, next: { revalidate: 0 } }
     );
     if (!res.ok) {
@@ -238,12 +238,18 @@ export async function importFromFigmaStylesAction(formData: FormData): Promise<I
   }
 
   const styles = fileJson.styles ?? {};
+  const styleCount = Object.keys(styles).length;
+
+  if (styleCount === 0) {
+    return { ok: false, error: `No styles found in this file (API returned 0 styles). Keys in response: ${Object.keys(fileJson).join(", ")}` };
+  }
+
   const styleEntries = Object.entries(styles)
     .filter(([, s]) => s.styleType !== "GRID")
     .map(([nodeId, s]) => ({ ...s, nodeId }));
 
   if (!styleEntries.length) {
-    return { ok: false, error: "No styles found in this file. Make sure the file has published paint, text, or effect styles." };
+    return { ok: false, error: "File only has Grid styles — no paint, text, or effect styles to import." };
   }
 
   // 2. Batch-fetch all style nodes
