@@ -3,25 +3,43 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #EDEBE4;
+  --shell: #F2F0EB;
+  --panel: #E8E5DE;
+  --sidebar: #E2DFD8;
+  --border: #1a1a1a;
+  --muted-border: #C8C4B8;
+  --ink: #1a1a1a;
+  --ink-soft: #666;
+  --ink-mute: #999;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+html, body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'Courier New', ui-monospace, monospace;
+}
+
+@layer components {
+  .shell {
+    @apply border-2 border-ink bg-shell shadow-lofi;
   }
-}
-
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
+  .btn {
+    @apply inline-flex items-center gap-1.5 h-8 px-3 border-2 border-ink text-[10px] font-bold tracking-wide uppercase;
+  }
+  .btn-primary { @apply bg-ink text-shell; }
+  .btn-ghost { @apply border-mute text-soft; }
+  .btn-sm { @apply h-[26px] px-2.5 text-[9px] border; }
+  .input {
+    @apply h-[34px] border-2 border-ink bg-white px-3 text-[11px] w-full;
+  }
+  .tag {
+    @apply inline-block text-[8px] tracking-widest uppercase px-[7px] py-[2px] border-[1.5px] border-ink;
+  }
+  .tag-filled { @apply bg-ink text-shell; }
+  .tag-green  { @apply border-[#16A34A] text-[#16A34A]; }
+  .tag-orange { @apply border-[#D97706] text-[#D97706]; }
+  .sec-label {
+    @apply text-[8px] tracking-[2px] uppercase text-ink-mute pb-2 border-b border-mute;
   }
 }

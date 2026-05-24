@@ -9,8 +9,21 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+        bg: "#EDEBE4",
+        shell: "#F2F0EB",
+        panel: "#E8E5DE",
+        sidebar: "#E2DFD8",
+        ink: "#1a1a1a",
+        soft: "#666",
+        mute: "#bbb",
+        "ink-mute": "#999",
+      },
+      fontFamily: {
+        mono: ["'Courier New'", "ui-monospace", "monospace"],
+      },
+      boxShadow: {
+        lofi: "5px 5px 0 #C8C4B8",
+        lofiHard: "5px 5px 0 #1a1a1a",
       },
     },
   },
