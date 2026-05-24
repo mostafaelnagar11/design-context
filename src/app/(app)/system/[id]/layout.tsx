@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   publishSystemAction,
   unpublishSystemAction,
@@ -23,12 +24,20 @@ export default async function SystemLayout({
   params: { id: string };
 }) {
   const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
   const { data: system } = await supabase
     .from("design_systems")
     .select("id, name, status")
     .eq("id", params.id)
     .single();
   if (!system) notFound();
+
+  // Check Figma connection
+  const admin = createAdminClient();
+  const { data: figmaConn } = user
+    ? await admin.from("figma_connections").select("figma_email").eq("user_id", user.id).maybeSingle()
+    : { data: null };
 
   const { data: counts } = await supabase
     .from("tokens")
@@ -58,7 +67,11 @@ export default async function SystemLayout({
           {system.status}
         </span>
         <div className="flex-1" />
-        <FigmaImportButton systemId={system.id} />
+        <FigmaImportButton
+          systemId={system.id}
+          isConnected={!!figmaConn}
+          figmaEmail={figmaConn?.figma_email}
+        />
         <form action={isPublished ? unpublishSystemAction : publishSystemAction}>
           <input type="hidden" name="id" value={system.id} />
           <button

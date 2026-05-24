@@ -52,6 +52,21 @@ function classifyFloat(name: string, collectionName: string): "spacing" | "radii
   return "spacing";
 }
 
+// ─── Figma connection ──────────────────────────────────────────────────────────
+// Connection is established via OAuth popup (/api/figma/connect → /api/figma/callback)
+// Only disconnect is needed as a server action.
+
+export async function disconnectFigmaAction(): Promise<void> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const admin = createAdminClient();
+  await admin.from("figma_connections").delete().eq("user_id", user.id);
+}
+
+// ─── Import ────────────────────────────────────────────────────────────────────
+
 export type ImportResult =
   | { ok: true; counts: { colors: number; spacing: number; radii: number; skipped: number } }
   | { ok: false; error: string };
@@ -61,9 +76,21 @@ export async function importFromFigmaAction(formData: FormData): Promise<ImportR
   await assertOwner(systemId);
 
   const figmaUrl = String(formData.get("figma_url")).trim();
-  const figmaToken = String(formData.get("figma_token")).trim();
 
-  if (!figmaToken) return { ok: false, error: "Figma access token is required." };
+  // Read stored token
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not logged in." };
+
+  const admin = createAdminClient();
+  const { data: conn } = await admin
+    .from("figma_connections")
+    .select("access_token")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const figmaToken = conn?.access_token ?? "";
+  if (!figmaToken) return { ok: false, error: "Figma not connected. Connect first." };
 
   const fileKey = extractFileKey(figmaUrl);
   if (!fileKey) return { ok: false, error: "Could not extract a file key from that URL." };
@@ -73,7 +100,7 @@ export async function importFromFigmaAction(formData: FormData): Promise<ImportR
   try {
     const res = await fetch(
       `https://api.figma.com/v1/files/${fileKey}/variables/local`,
-      { headers: { "X-Figma-Token": figmaToken }, next: { revalidate: 0 } }
+      { headers: { Authorization: `Bearer ${figmaToken}` }, next: { revalidate: 0 } }
     );
     if (!res.ok) {
       const text = await res.text();
@@ -128,13 +155,13 @@ export async function importFromFigmaAction(formData: FormData): Promise<ImportR
   // ── Upsert into Supabase ─────────────────────────────────────────────────
   // Delete existing tokens for affected categories, then insert fresh.
   const categories = Array.from(new Set(rows.map((r) => r.category)));
-  const admin = createAdminClient();
+  const adminDb = createAdminClient();
 
-  await admin.from("tokens").delete()
+  await adminDb.from("tokens").delete()
     .eq("system_id", systemId)
     .in("category", categories);
 
-  const { error: insertErr } = await admin.from("tokens").insert(rows);
+  const { error: insertErr } = await adminDb.from("tokens").insert(rows);
   if (insertErr) return { ok: false, error: insertErr.message };
 
   revalidatePath(`/system/${systemId}`);
